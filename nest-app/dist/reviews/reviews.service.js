@@ -7,14 +7,18 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { Injectable, NotFoundException, } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, } from '@nestjs/common';
 import { ServicesService } from '../services/services.service.js';
+import { AuthorizationService } from '@nestjs/authorization';
+import { ReviewPolicy } from '../authorization/policies/review.policy.js';
 let ReviewsService = class ReviewsService {
     servicesService;
+    authorization;
     reviews = [];
     nextReviewNumber = 1;
-    constructor(servicesService) {
+    constructor(servicesService, authorization) {
         this.servicesService = servicesService;
+        this.authorization = authorization;
     }
     findOne(id) {
         const review = this.reviews.find((item) => item.id === id);
@@ -29,13 +33,14 @@ let ReviewsService = class ReviewsService {
         }
         return this.reviews.filter((review) => review.serviceId === serviceId);
     }
-    create(serviceId, data) {
+    create(serviceId, data, authorId) {
         if (!this.servicesService.exists(serviceId)) {
             throw new NotFoundException(`Service with ID ${serviceId} not found`);
         }
         const review = {
             id: `rev_${this.nextReviewNumber.toString().padStart(3, '0')}`,
             serviceId,
+            authorId,
             authorName: data.authorName,
             rating: data.rating,
             comment: data.comment,
@@ -44,29 +49,35 @@ let ReviewsService = class ReviewsService {
         this.reviews.push(review);
         return review;
     }
-    replace(id, data) {
+    async replace(id, data, user) {
         const review = this.findOne(id);
+        await this.authorization.authorize(ReviewPolicy, 'update', user, review);
         review.authorName = data.authorName;
         review.rating = data.rating;
         review.comment = data.comment;
         return review;
     }
-    update(id, data) {
+    async update(id, data, user) {
         const review = this.findOne(id);
+        if (Object.keys(data).length === 0) {
+            throw new BadRequestException('At least one field is required');
+        }
+        await this.authorization.authorize(ReviewPolicy, 'update', user, review);
         Object.assign(review, data);
         return review;
     }
-    remove(id) {
+    async remove(id, user) {
         const index = this.reviews.findIndex((item) => item.id === id);
         if (index === -1) {
             throw new NotFoundException(`Review with ID ${id} not found`);
         }
+        await this.authorization.authorize(ReviewPolicy, 'delete', user, this.reviews[index]);
         this.reviews.splice(index, 1);
     }
 };
 ReviewsService = __decorate([
     Injectable(),
-    __metadata("design:paramtypes", [ServicesService])
+    __metadata("design:paramtypes", [ServicesService, AuthorizationService])
 ], ReviewsService);
 export { ReviewsService };
 //# sourceMappingURL=reviews.service.js.map

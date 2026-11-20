@@ -12,6 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { Controller, Get, Param } from '@nestjs/common';
 import { ServicesService } from './services.service.js';
+import { Public } from '@nestjs/authentication';
 let ServicesController = class ServicesController {
     servicesService;
     constructor(servicesService) {
@@ -26,12 +27,14 @@ let ServicesController = class ServicesController {
 };
 __decorate([
     Get(),
+    Public(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], ServicesController.prototype, "findAll", null);
 __decorate([
     Get(':id'),
+    Public(),
     __param(0, Param('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),

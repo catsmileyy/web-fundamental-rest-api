@@ -5,6 +5,11 @@ import { AppService } from './app.service.js';
 import { ServicesModule } from './services/services.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
+import { AuthenticationModule } from '@nestjs/authentication';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { UsersModule } from './users/users.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { AuthorizationModule } from './authorization/authorization.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -21,6 +26,23 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ServicesModule,
     BookingsModule,
     ReviewsModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    AuthenticationModule.forRootAsync({
+      inject: [ConfigService],
+      globalGuard: true,
+      useFactory: (config: ConfigService) => ({
+        accessToken: {
+          key: config.getOrThrow<string>('JWT_SECRET'),
+          ttl: '15m',
+        },
+        refreshToken: false,
+      }),
+    }),
+    UsersModule,
+    AuthModule,
+    AuthorizationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

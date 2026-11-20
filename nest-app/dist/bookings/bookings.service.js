@@ -9,12 +9,16 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 import { BadRequestException, Injectable, NotFoundException, } from '@nestjs/common';
 import { ServicesService } from '../services/services.service.js';
+import { AuthorizationService } from '@nestjs/authorization';
+import { BookingPolicy } from '../authorization/policies/booking.policy.js';
 let BookingsService = class BookingsService {
     servicesService;
+    authorization;
     bookings = [];
     nextBookingNumber = 1;
-    constructor(servicesService) {
+    constructor(servicesService, authorization) {
         this.servicesService = servicesService;
+        this.authorization = authorization;
     }
     findAll() {
         return this.bookings;
@@ -26,12 +30,13 @@ let BookingsService = class BookingsService {
         }
         return booking;
     }
-    create(data) {
+    create(data, ownerId) {
         if (!this.servicesService.exists(data.serviceId)) {
             throw new BadRequestException(`Service with ID ${data.serviceId} does not exist`);
         }
         const booking = {
             id: `bkg_${this.nextBookingNumber.toString().padStart(3, '0')}`,
+            ownerId,
             ...data,
             status: 'PENDING',
         };
@@ -39,19 +44,21 @@ let BookingsService = class BookingsService {
         this.bookings.push(booking);
         return booking;
     }
-    replace(id, data) {
+    async replace(id, data, user) {
         const booking = this.findOne(id);
+        await this.authorization.authorize(BookingPolicy, 'update', user, booking);
         if (!this.servicesService.exists(data.serviceId)) {
             throw new BadRequestException(`Service with ID ${data.serviceId} does not exist`);
         }
-        booking.serviceId = data.serviceId;
-        booking.date = data.date;
-        booking.timeSlot = data.timeSlot;
-        booking.customerName = data.customerName;
+        Object.assign(booking, data);
         return booking;
     }
-    update(id, data) {
+    async update(id, data, user) {
         const booking = this.findOne(id);
+        if (Object.keys(data).length === 0) {
+            throw new BadRequestException('At least one field is required');
+        }
+        await this.authorization.authorize(BookingPolicy, 'update', user, booking);
         if (data.serviceId &&
             !this.servicesService.exists(data.serviceId)) {
             throw new BadRequestException(`Service with ID ${data.serviceId} does not exist`);
@@ -59,17 +66,18 @@ let BookingsService = class BookingsService {
         Object.assign(booking, data);
         return booking;
     }
-    remove(id) {
+    async remove(id, user) {
         const index = this.bookings.findIndex((item) => item.id === id);
         if (index === -1) {
             throw new NotFoundException(`Booking with ID ${id} not found`);
         }
+        await this.authorization.authorize(BookingPolicy, 'delete', user, this.bookings[index]);
         this.bookings.splice(index, 1);
     }
 };
 BookingsService = __decorate([
     Injectable(),
-    __metadata("design:paramtypes", [ServicesService])
+    __metadata("design:paramtypes", [ServicesService, AuthorizationService])
 ], BookingsService);
 export { BookingsService };
 //# sourceMappingURL=bookings.service.js.map
